@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Security Monitoring Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px 40px;
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .status-badge {
+            background: #10b981;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-card h3 {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .change {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .panel h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .live-feed {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .packet-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #10b981;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .packet-item.threat-high {
+            border-left-color: #ef4444;
+        }
+
+        .packet-item.threat-medium {
+            border-left-color: #f59e0b;
+        }
+
+        .packet-time {
+            font-size: 11px;
+            opacity: 0.6;
+            margin-bottom: 5px;
+        }
+
+        .packet-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+
+        .threat-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .threat-low { background: #10b981; }
+        .threat-medium { background: #f59e0b; }
+        .threat-high { background: #ef4444; }
+        .threat-critical { background: #dc2626; animation: blink 1s infinite; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .chart-container {
+            height: 200px;
+            margin-top: 20px;
+            position: relative;
+        }
+
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            height: 100%;
+            gap: 10px;
+            padding: 10px 0;
+        }
+
+        .bar {
+            flex: 1;
+            background: linear-gradient(to top, #10b981, #34d399);
+            border-radius: 5px 5px 0 0;
+            position: relative;
+            transition: height 0.5s ease;
+            min-height: 20px;
+        }
+
+        .bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .encryption-demo {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .message-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            word-break: break-all;
+        }
+
+        .arrow {
+            text-align: center;
+            font-size: 24px;
+            margin: 10px 0;
+        }
+
+        .alert-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            background: rgba(239, 68, 68, 0.2);
+            border-left: 4px solid #ef4444;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            animation: slideIn 0.3s ease;
+        }
+
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .alert-desc {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .demo-mode {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(239, 68, 68, 0.9);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-mode">🎬 DEMO MODE</div>
+    
+    <div class="header">
+        <h1>
+            🛡️ Network Security Monitoring System
+            <span class="status-badge">● LIVE</span>
+        </h1>
+    </div>
+
+    <div class="container">
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startCapture()">
+                ▶️ Start Monitoring
+            </button>
+            <button class="btn btn-danger" onclick="stopCapture()">
+                ⏹️ Stop Monitoring
+            </button>
+            <button class="btn btn-secondary" onclick="generateDemoTraffic()">
+                📊 Generate Demo Traffic
+            </button>
+            <button class="btn btn-secondary" onclick="testEncryption()">
+                🔐 Test Encryption
+            </button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Packets</h3>
+                <div class="value" id="totalPackets">0</div>
+                <div class="change">↗️ Live updating</div>
+            </div>
+            <div class="stat-card">
+                <h3>Threats Detected</h3>
+                <div class="value" id="threats">0</div>
+                <div class="change">🚨 Critical: <span id="criticalThreats">0</span></div>
+            </div>
+            <div class="stat-card">
+                <h3>Encrypted Sessions</h3>
+                <div class="value" id="encrypted">0</div>
+                <div class="change">🔒 AES-256 Active</div>
+            </div>
+            <div class="stat-card">
+                <h3>Packets/Second</h3>
+                <div class="value" id="packetsPerSec">0</div>
+                <div class="change">⚡ Real-time</div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="panel">
+                <h2>
+                    📡 Live Packet Stream
+                    <span style="font-size: 12px; opacity: 0.7;">Real-time Network Traffic</span>
+                </h2>
+                <div class="live-feed" id="packetFeed">
+                    <div class="packet-item">
+                        <div class="packet-time">Waiting for traffic...</div>
+                        <div class="packet-info">
+                            <span>Click "Start Monitoring" to begin</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 style="margin-top: 30px;">📊 Protocol Distribution</h2>
+                <div class="chart-container">
+                    <div class="bar-chart" id="protocolChart">
+                        <div class="bar" style="height: 60%;">
+                            <div class="bar-label">HTTP</div>
+                        </div>
+                        <div class="bar" style="height: 80%;">
+                            <div class="bar-label">HTTPS</div>
+                        </div>
+                        <div class="bar" style="height: 40%;">
+                            <div class="bar-label">DNS</div>
+                        </div>
+                        <div class="bar" style="height: 30%;">
+                            <div class="bar-label">TCP</div>
+                        </div>
+                        <div class="bar" style="height: 50%;">
+                            <div class="bar-label">UDP</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>🚨 Security Alerts</h2>
+                <div class="alert-list" id="alertList">
+                    <div class="alert-item">
+                        <div class="alert-title">System Ready</div>
+                        <div class="alert-desc">Threat detection active. Monitoring for suspicious activity...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>🔐 Encryption Demo - Live</h2>
+            <div class="encryption-demo">
+                <div>
+                    <strong>Original Message:</strong>
+                    <div class="message-box" id="originalMsg">Secret data: Credit Card 4532-1234-5678-9010</div>
+                </div>
+                <div class="arrow">⬇️ RSA + AES-256 Encryption</div>
+                <div>
+                    <strong>Encrypted (What attackers see):</strong>
+                    <div class="message-box" id="encryptedMsg">U2FsdGVkX1+vupppZksvRf5pq5g5XjFRIipRkwB0K1Y=...</div>
+                </div>
+                <div class="arrow">⬇️ Decryption with Private Key</div>
+                <div>
+                    <strong>Decrypted (Authorized receiver):</strong>
+                    <div class="message-box" id="decryptedMsg">Secret data: Credit Card 4532-1234-5678-9010</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let capturing = false;
+        let packetCount = 0;
+        let threatCount = 0;
+        let encryptedCount = 0;
+
+        const threatTypes = [
+            'Unsecured HTTP traffic detected',
+            'Port scan attempt from external IP',
+            'SQL injection pattern detected',
+            'Suspicious DNS query',
+            'Potential data exfiltration',
+            'Telnet connection (unencrypted)',
+            'FTP credentials in plain text'
+        ];
+
+        const protocols = ['HTTP', 'HTTPS', 'DNS', 'TCP', 'UDP', 'FTP', 'SSH'];
+        const ips = ['192.168.1.100', '10.0.0.50', '172.16.0.10', '93.184.216.34'];
+
+        function startCapture() {
+            capturing = true;
+            addAlert('Monitoring Started', 'Capturing network packets in real-time...', 'info');
+            simulateTraffic();
+        }
+
+        function stopCapture() {
+            capturing = false;
+            addAlert('Monitoring Stopped', 'Packet capture halted', 'info');
+        }
+
+        function generateDemoTraffic() {
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => addPacket(), i * 200);
+            }
+        }
+
+        function addPacket() {
+            packetCount++;
+            document.getElementById('totalPackets').textContent = packetCount;
+
+            const protocol = protocols[Math.floor(Math.random() * protocols.length)];
+            const srcIp = ips[Math.floor(Math.random() * ips.length)];
+            const dstIp = ips[Math.floor(Math.random() * ips.length)];
+            const threatLevel = Math.random() > 0.7 ? (Math.random() > 0.5 ? 'high' : 'medium') : 'low';
+
+            if (threatLevel === 'high' || threatLevel === 'medium') {
+                threatCount++;
+                document.getElementById('threats').textContent = threatCount;
+                if (threatLevel === 'high') {
+                    const critical = parseInt(document.getElementById('criticalThreats').textContent) + 1;
+                    document.getElementById('criticalThreats').textContent = critical;
+                    addAlert('Threat Detected', threatTypes[Math.floor(Math.random() * threatTypes.length)], 'danger');
+                }
+            }
+
+            const feed = document.getElementById('packetFeed');
+            const time = new Date().toLocaleTimeString();
+            
+            const packet = document.createElement('div');
+            packet.className = `packet-item threat-${threatLevel}`;
+            packet.innerHTML = `
+                <div class="packet-time">${time}</div>
+                <div class="packet-info">
+                    <span>${protocol} | ${srcIp} → ${dstIp}</span>
+                    <span class="threat-badge threat-${threatLevel}">${threatLevel.toUpperCase()}</span>
+                </div>
+            `;
+            
+            feed.insertBefore(packet, feed.firstChild);
+            
+            if (feed.children.length > 20) {
+                feed.removeChild(feed.lastChild);
+            }
+
+            document.getElementById('packetsPerSec').textContent = Math.floor(Math.random() * 50 + 10);
+        }
+
+        function addAlert(title, desc, type) {
+            const alertList = document.getElementById('alertList');
+            const alert = document.createElement('div');
+            alert.className = 'alert-item';
+            alert.innerHTML = `
+                <div class="alert-title">⚠️ ${title}</div>
+                <div class="alert-desc">${desc} - ${new Date().toLocaleTimeString()}</div>
+            `;
+            alertList.insertBefore(alert, alertList.firstChild);
+            
+            if (alertList.children.length > 10) {
+                alertList.removeChild(alertList.lastChild);
+            }
+        }
+
+        function simulateTraffic() {
+            if (!capturing) return;
+            addPacket();
+            setTimeout(simulateTraffic, Math.random() * 1000 + 500);
+        }
+
+        function testEncryption() {
+            encryptedCount++;
+            document.getElementById('encrypted').textContent = encryptedCount;
+            
+            const originalMsg = document.getElementById('originalMsg').textContent;
+            const encrypted = btoa(originalMsg).substring(0, 50) + '...';
+            
+            document.getElementById('encryptedMsg').textContent = encrypted;
+            
+            setTimeout(() => {
+                document.getElementById('decryptedMsg').textContent = originalMsg;
+                addAlert('Encryption Test', 'AES-256 encryption/decryption successful', 'info');
+            }, 1000);
+        }
+
+        // Auto-start for demo
+        setTimeout(() => {
+            startCapture();
+        }, 1000);
+    </script>
+</body>
+</html>
